@@ -1,4 +1,4 @@
-# eTopocart Challenge
+# GeoJSON utilizando MapLibre GL
 
 Aplicação full-stack com `Next.js` para gerenciamento de features geográficas em formato `GeoJSON`, com CRUD completo em `Route Handlers` e visualização em mapa interativo com `MapLibre GL`.
 
@@ -12,13 +12,14 @@ Aplicação full-stack com `Next.js` para gerenciamento de features geográficas
 - `react-hook-form`
 - `Sonner`
 
-```md
+
 ## Configuração
 
 Defina sua chave do MapTiler no arquivo `.env.local`:
 
 ```env
-NEXT_PUBLIC_MAPTILER_KEY=your_api_key_here
+NEXT_PUBLIC_MAPTILER_KEY=BJH29Bi6wvitBXpd71jB
+```
 
 ## Como executar
 
