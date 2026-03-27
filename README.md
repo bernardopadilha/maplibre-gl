@@ -2,6 +2,10 @@
 
 Aplicação full-stack com `Next.js` para gerenciamento de features geográficas em formato `GeoJSON`, com CRUD completo em `Route Handlers` e visualização em mapa interativo com `MapLibre GL`.
 
+## Vídeo explicativo 
+```
+https://www.youtube.com/watch?v=XZTi7-gXsYo
+```
 ## Stack
 
 - `Next.js` com `App Router`
