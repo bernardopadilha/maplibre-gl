@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const positionSchema = z.tuple([
-  z.number().min(-180).max(180), // longitude
-  z.number().min(-90).max(90),   // latitude
+  z.number().min(-180).max(180),
+  z.number().min(-90).max(90),
 ]);
 
 export const pointGeometrySchema = z.object({
@@ -15,10 +15,30 @@ export const lineStringGeometrySchema = z.object({
   coordinates: z.array(positionSchema).min(2),
 });
 
-export const polygonGeometrySchema = z.object({
-  type: z.literal("Polygon"),
-  coordinates: z.array(z.array(positionSchema).min(4)),
-});
+function ringClosed(ring: [number, number][]) {
+  if (ring.length < 4) return false;
+  const [lng0, lat0] = ring[0]!;
+  const [lngN, latN] = ring[ring.length - 1]!;
+  return lng0 === lngN && lat0 === latN;
+}
+
+export const polygonGeometrySchema = z
+  .object({
+    type: z.literal("Polygon"),
+    coordinates: z.array(z.array(positionSchema).min(4)),
+  })
+  .superRefine((val, ctx) => {
+    val.coordinates.forEach((ring, ringIndex) => {
+      if (!ringClosed(ring as [number, number][])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Cada anel de Polygon GeoJSON deve ser fechado (primeiro vértice = último).",
+          path: ["coordinates", ringIndex],
+        });
+      }
+    });
+  });
 
 export const geometrySchema = z.union([
   pointGeometrySchema,
@@ -38,4 +58,8 @@ export const geoJsonFeatureSchema = z.object({
   properties: propertiesSchema,
 });
 
-export type GeoJsonFeatureInput = z.infer<typeof geoJsonFeatureSchema>;
+export const pointFeatureSchema = geoJsonFeatureSchema.extend({
+  geometry: pointGeometrySchema,
+});
+
+export type PointFeatureInput = z.infer<typeof pointFeatureSchema>;

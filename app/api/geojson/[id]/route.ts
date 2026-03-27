@@ -1,5 +1,6 @@
 import { geoJsonStore } from "@/lib/geojson.store";
 import { validateGeoJsonFeature } from "@/lib/geojson.validators";
+import { parseJsonBody } from "@/lib/http/parse-json-body";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -33,12 +34,17 @@ export async function PUT(
   context: RouteContext<"/api/geojson/[id]">
 ) {
   const { id } = await context.params;
-  let body;
 
   try {
-    body = await req.json();
+    const parsedBody = await parseJsonBody(req);
+    if (!parsedBody.ok) {
+      return NextResponse.json(
+        { message: "Corpo da requisição não é JSON válido" },
+        { status: 400 }
+      );
+    }
 
-    const result = validateGeoJsonFeature(body);
+    const result = validateGeoJsonFeature(parsedBody.data);
 
     if (!result.success) {
       return NextResponse.json(
@@ -78,7 +84,7 @@ export async function PUT(
 
 export async function DELETE(
   _: Request,
-  context: RouteContext<"/api/geojson/[id]">
+  context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
 
@@ -91,5 +97,5 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json(null, { status: 204 });
+  return new NextResponse(null, { status: 204 });
 }

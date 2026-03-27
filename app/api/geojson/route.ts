@@ -1,15 +1,20 @@
 import { geoJsonStore } from "@/lib/geojson.store";
 import { generateId, toFeatureCollection } from "@/lib/geojson.utils";
 import { validateGeoJsonFeature } from "@/lib/geojson.validators";
+import { parseJsonBody } from "@/lib/http/parse-json-body";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  let body;
-
   try {
-    body = await req.json();
+    const parsedBody = await parseJsonBody(req);
+    if (!parsedBody.ok) {
+      return NextResponse.json(
+        { message: "Corpo da requisição não é JSON válido" },
+        { status: 400 }
+      );
+    }
 
-    const result = validateGeoJsonFeature(body);
+    const result = validateGeoJsonFeature(parsedBody.data);
 
     if (!result.success) {
       return NextResponse.json(
@@ -44,10 +49,7 @@ export async function GET() {
   try {
     const features = geoJsonStore.getAll();
 
-    return NextResponse.json(
-      toFeatureCollection(features),
-      { status: 200 }
-    );
+    return NextResponse.json(toFeatureCollection(features), { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
