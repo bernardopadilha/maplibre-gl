@@ -1,6 +1,11 @@
 import { geoJsonStore } from "@/lib/geojson.store";
 import { generateId, toFeatureCollection } from "@/lib/geojson.utils";
-import { validateGeoJsonFeature } from "@/lib/geojson.validators";
+import {
+  formatZodErrorBody,
+  validateFeatureCollectionOutput,
+  validatePointFeatureInput,
+} from "@/lib/geojson.validators";
+import { pointFeatureOutputSchema } from "@/lib/geojson.schema";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
 import { NextResponse } from "next/server";
 
@@ -14,24 +19,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = validateGeoJsonFeature(parsedBody.data);
+    const result = validatePointFeatureInput(parsedBody.data);
 
     if (!result.success) {
-      return NextResponse.json(
-        {
-          message: "Dados inválidos",
-          errors: result.error.format(),
-        },
-        { status: 400 }
-      );
+      return NextResponse.json(formatZodErrorBody(result.error), {
+        status: 400,
+      });
     }
 
-    const data = result.data;
-
-    const feature = {
-      ...data,
+    const feature = pointFeatureOutputSchema.parse({
+      type: result.data.type,
+      geometry: result.data.geometry,
+      properties: result.data.properties,
       id: generateId(),
-    };
+    });
 
     geoJsonStore.create(feature);
 
@@ -48,8 +49,22 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     const features = geoJsonStore.getAll();
+    const collection = toFeatureCollection(features);
 
-    return NextResponse.json(toFeatureCollection(features), { status: 200 });
+    const result = validateFeatureCollectionOutput(collection);
+
+    if (!result.success) {
+      console.error("Coleção inconsistente com Zod:", result.error.format());
+      return NextResponse.json(
+        {
+          message: "Dados internos inconsistentes",
+          errors: result.error.format(),
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(result.data, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

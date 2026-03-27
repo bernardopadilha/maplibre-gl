@@ -1,13 +1,28 @@
 import { geoJsonStore } from "@/lib/geojson.store";
-import { validateGeoJsonFeature } from "@/lib/geojson.validators";
+import { pointFeatureOutputSchema } from "@/lib/geojson.schema";
+import {
+  formatZodErrorBody,
+  parseRouteFeatureId,
+  validatePointFeatureInput,
+  validatePointFeatureOutput,
+} from "@/lib/geojson.validators";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
 import { NextResponse } from "next/server";
+
+function invalidIdResponse() {
+  return NextResponse.json({ message: "ID da feature deve ser um UUID válido" }, { status: 400 });
+}
 
 export async function GET(
   _: Request,
   context: RouteContext<"/api/geojson/[id]">
 ) {
   const { id } = await context.params;
+
+  const idCheck = parseRouteFeatureId(id);
+  if (!idCheck.success) {
+    return invalidIdResponse();
+  }
 
   try {
     const feature = geoJsonStore.getById(id);
@@ -19,7 +34,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(feature);
+    const result = validatePointFeatureOutput(feature);
+    if (!result.success) {
+      console.error("Feature inválida no store:", result.error.format());
+      return NextResponse.json(
+        {
+          message: "Dados internos inconsistentes",
+          errors: result.error.format(),
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(result.data);
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -35,6 +62,11 @@ export async function PUT(
 ) {
   const { id } = await context.params;
 
+  const idCheck = parseRouteFeatureId(id);
+  if (!idCheck.success) {
+    return invalidIdResponse();
+  }
+
   try {
     const parsedBody = await parseJsonBody(req);
     if (!parsedBody.ok) {
@@ -44,16 +76,12 @@ export async function PUT(
       );
     }
 
-    const result = validateGeoJsonFeature(parsedBody.data);
+    const result = validatePointFeatureInput(parsedBody.data);
 
     if (!result.success) {
-      return NextResponse.json(
-        {
-          message: "Dados inválidos",
-          errors: result.error.format(),
-        },
-        { status: 400 }
-      );
+      return NextResponse.json(formatZodErrorBody(result.error), {
+        status: 400,
+      });
     }
 
     const existing = geoJsonStore.getById(id);
@@ -65,10 +93,12 @@ export async function PUT(
       );
     }
 
-    const updatedFeature = {
-      ...result.data,
+    const updatedFeature = pointFeatureOutputSchema.parse({
+      type: result.data.type,
+      geometry: result.data.geometry,
+      properties: result.data.properties,
       id,
-    };
+    });
 
     geoJsonStore.update(id, updatedFeature);
 
@@ -84,9 +114,14 @@ export async function PUT(
 
 export async function DELETE(
   _: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext<"/api/geojson/[id]">
 ) {
   const { id } = await context.params;
+
+  const idCheck = parseRouteFeatureId(id);
+  if (!idCheck.success) {
+    return invalidIdResponse();
+  }
 
   const deleted = geoJsonStore.delete(id);
 

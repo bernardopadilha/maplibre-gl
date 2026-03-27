@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** GeoJSON Position: [longitude, latitude] */
 export const positionSchema = z.tuple([
   z.number().min(-180).max(180),
   z.number().min(-90).max(90),
@@ -46,11 +47,14 @@ export const geometrySchema = z.union([
   polygonGeometrySchema,
 ]);
 
-export const propertiesSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-}).catchall(z.unknown());
+export const propertiesSchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+  })
+  .catchall(z.unknown());
 
+/** Feature completo (qualquer geometria) — útil para evolução / ferramentas. */
 export const geoJsonFeatureSchema = z.object({
   type: z.literal("Feature"),
   id: z.string().uuid().optional(),
@@ -58,8 +62,32 @@ export const geoJsonFeatureSchema = z.object({
   properties: propertiesSchema,
 });
 
-export const pointFeatureSchema = geoJsonFeatureSchema.extend({
+/**
+ * Corpo de POST/PUT na API: apenas Point; `id` opcional é ignorado em favor do servidor ou da URL.
+ */
+export const pointFeatureInputSchema = z.object({
+  type: z.literal("Feature"),
+  id: z.string().uuid().optional(),
   geometry: pointGeometrySchema,
+  properties: propertiesSchema,
 });
 
-export type PointFeatureInput = z.infer<typeof pointFeatureSchema>;
+/**
+ * Feature persistida / resposta da API: Point + id UUID obrigatório.
+ */
+export const pointFeatureOutputSchema = z.object({
+  type: z.literal("Feature"),
+  id: z.string().uuid(),
+  geometry: pointGeometrySchema,
+  properties: propertiesSchema,
+});
+
+export const featureCollectionOutputSchema = z.object({
+  type: z.literal("FeatureCollection"),
+  features: z.array(pointFeatureOutputSchema),
+});
+
+export const routeFeatureIdSchema = z.string().uuid();
+
+export type PointFeatureInput = z.infer<typeof pointFeatureInputSchema>;
+export type PointFeatureOutput = z.infer<typeof pointFeatureOutputSchema>;
